@@ -68,9 +68,22 @@ export const importAnkiPackage = async (fileUri) => {
     }
 
     // Get Decks
-    const colRes = ankiDb.exec("SELECT decks, models FROM col");
-    const colRow = colRes[0].values[0];
-    const decksJson = JSON.parse(colRow[0]);
+    let decksJson;
+    try {
+        console.log("Web Import: Fetching 'col' table...");
+        const colRes = ankiDb.exec("SELECT decks, models FROM col");
+        if (!colRes.length || !colRes[0] || !colRes[0].values.length) {
+            console.error("Web Import: 'col' table empty or invalid:", JSON.stringify(colRes));
+            throw new Error("Anki collection metadata is missing.");
+        }
+
+        console.log("Web Import: Parsing decks...");
+        const colRow = colRes[0].values[0];
+        decksJson = JSON.parse(colRow[0]);
+    } catch (e) {
+        console.error("Web Import: Failed to read decks from 'col'", e);
+        throw new Error("Failed to read deck list: " + e.message);
+    }
 
     console.log("Web Import: Decks JSON Keys:", Object.keys(decksJson));
     console.log("Web Import: Full Decks Structure:", JSON.stringify(decksJson).substring(0, 200) + "...");
