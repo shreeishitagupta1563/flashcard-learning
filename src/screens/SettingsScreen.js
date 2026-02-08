@@ -169,9 +169,15 @@ export default function SettingsScreen({ onSave }) {
                     </View>
                     <TextInput
                         style={styles.input}
-                        value={(settings.cardsPerSession || 50).toString()}
+                        value={settings.cardsPerSession?.toString() || ''}
                         onChangeText={(text) => {
-                            const val = parseInt(text) || 50;
+                            // Allow empty during typing, store raw number
+                            const val = text === '' ? '' : parseInt(text.replace(/[^0-9]/g, '')) || '';
+                            updateSetting('cardsPerSession', val);
+                        }}
+                        onBlur={() => {
+                            // Apply constraints when leaving the field
+                            const val = parseInt(settings.cardsPerSession) || 50;
                             updateSetting('cardsPerSession', Math.max(1, Math.min(500, val)));
                         }}
                         keyboardType="number-pad"
