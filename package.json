@@ -7,7 +7,7 @@
     "android": "expo start --android",
     "ios": "expo start --ios",
     "web": "expo start --web",
-    "build:web": "expo export -p web && cp public/sql-wasm.wasm dist/sql-wasm.wasm"
+    "build:web": "expo export -p web && cp -r public/* dist/"
   },
   "dependencies": {
     "@expo-google-fonts/inter": "^0.4.2",

@@ -1,4 +1,3 @@
-import initSqlJs from 'sql.js';
 import localforage from 'localforage';
 
 let db = null;
@@ -16,24 +15,52 @@ const triggerSave = () => {
     saveTimer = setTimeout(saveDB, 1000); // Debounce save
 };
 
+const loadSqlJsLibrary = () => {
+    return new Promise((resolve, reject) => {
+        if (typeof window === 'undefined') return reject(new Error("Window not defined"));
+        if (window.initSqlJs) return resolve(window.initSqlJs);
+
+        console.log("WebSQLite: Injecting /sql-wasm.js script...");
+        const script = document.createElement('script');
+        script.src = '/sql-wasm.js';
+        script.async = true;
+        script.onload = () => {
+            console.log("WebSQLite: /sql-wasm.js loaded!");
+            if (window.initSqlJs) {
+                resolve(window.initSqlJs);
+            } else {
+                reject(new Error("window.initSqlJs is undefined after script load"));
+            }
+        };
+        script.onerror = (e) => {
+            console.error("WebSQLite: Failed to load script", e);
+            reject(new Error("Failed to load /sql-wasm.js"));
+        };
+        document.body.appendChild(script);
+    });
+};
+
 export const openDatabaseAsync = async (name) => {
     // If db already loaded, return wrapper
     if (db) return createWrapper(db);
 
     try {
-        console.log("WebSQLite: checking /sql-wasm.wasm...");
+        // First ensure WASM file exists
+        console.log("WebSQLite: Checking /sql-wasm.wasm...");
         const check = await fetch('/sql-wasm.wasm');
         if (!check.ok) {
-            console.error(`WebSQLite: /sql-wasm.wasm failed with status ${check.status}`);
             throw new Error(`WASM file missing at root (/sql-wasm.wasm). Status: ${check.status}`);
         }
-        console.log("WebSQLite: /sql-wasm.wasm found! Content-Type:", check.headers.get('content-type'));
 
+        // Load the library script dynamically
+        const initSqlJs = await loadSqlJsLibrary();
+
+        // Initialize SQL.js with correct locator
         const SQL = await Promise.race([
             initSqlJs({
                 locateFile: () => '/sql-wasm.wasm'
             }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("SQL.js WASM load timed out (even with file present!)")), 10000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error("SQL.js WASM initialization timed out")), 15000))
         ]);
 
         const savedData = await localforage.getItem('pels_db');
@@ -57,11 +84,7 @@ const createWrapper = (db) => ({
         triggerSave();
     },
     runAsync: async (sql, params = []) => {
-        // sql.js 'run' executes but doesn't return result, 'exec' returns result
-        // We use prepare/run for parameterized query
         console.log("WebDB Run:", sql.substring(0, 50), params);
-
-        // Handle params format: sql.js expects array
         try {
             db.run(sql, params);
             triggerSave();
@@ -72,7 +95,6 @@ const createWrapper = (db) => ({
         }
     },
     getAllAsync: async (sql, params = []) => {
-        // Use prepare/step for results
         const stmt = db.prepare(sql);
         stmt.bind(params);
         const result = [];
