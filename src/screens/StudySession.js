@@ -70,8 +70,8 @@ export default function StudySession({ deck, onExit }) {
     const [modalVisible, setModalVisible] = useState(false);
     const [customVal, setCustomVal] = useState('');
 
-    // Updated handleRate to support custom due date override
-    const handleRate = async (rating, overrideDueDate = null) => {
+    // Updated handleRate to support custom due date override OR queue offset
+    const handleRate = async (rating, overrideDueDate = null, requeueOffset = null) => {
         const currentQ = queueRef.current;
         const currentI = currentIdxRef.current;
 
@@ -82,7 +82,6 @@ export default function StudySession({ deck, onExit }) {
 
         if (overrideDueDate) {
             newCard.due = overrideDueDate;
-            // Calculate days difference roughly
             const diffTime = Math.abs(overrideDueDate - new Date());
             const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
             newCard.scheduled_days = diffDays;
@@ -100,22 +99,44 @@ export default function StudySession({ deck, onExit }) {
             currentCard.id
         );
 
-        // If Hard (or Again), add back to queue to repeat in this session
-        // UNLESS we set a custom long-term due date (e.g. > 1 day)
-        // If override is > 1 day, we probably don't need to see it again *now*.
-        let shouldRequeue = rating === Rating.Hard || rating === Rating.Again;
+        // Determine if we should requeue (repeat in session)
+        let shouldRequeue = false;
 
-        if (overrideDueDate) {
-            const now = new Date();
-            const oneHour = 60 * 60 * 1000;
-            if (overrideDueDate.getTime() - now.getTime() > oneHour) {
-                shouldRequeue = false; // Don't show again in session if rescheduled far out
+        if (requeueOffset !== null) {
+            shouldRequeue = true;
+        } else if (rating === Rating.Hard || rating === Rating.Again) {
+            // Default logic: only if NOT rescheduled far out by override
+            if (overrideDueDate) {
+                const now = new Date();
+                const oneHour = 60 * 60 * 1000;
+                if (overrideDueDate.getTime() - now.getTime() > oneHour) {
+                    shouldRequeue = false;
+                } else {
+                    shouldRequeue = true;
+                }
+            } else {
+                shouldRequeue = true;
             }
         }
 
         if (shouldRequeue) {
             const repeatCard = { ...currentCard, _isRepeat: true };
-            const updatedQueue = [...currentQ, repeatCard];
+            let updatedQueue = [...currentQ];
+
+            if (requeueOffset !== null && requeueOffset > 0) {
+                // Insert at specific offset (after X cards)
+                // Position = current index + 1 (next card) + offset
+                const insertIdx = currentI + 1 + requeueOffset;
+                if (insertIdx >= updatedQueue.length) {
+                    updatedQueue.push(repeatCard);
+                } else {
+                    updatedQueue.splice(insertIdx, 0, repeatCard);
+                }
+            } else {
+                // Default: Append to end
+                updatedQueue.push(repeatCard);
+            }
+
             setQueue(updatedQueue);
             setCurrentIdx(currentI + 1);
         } else {
@@ -152,6 +173,19 @@ export default function StudySession({ deck, onExit }) {
         if (days > 0) {
             const ms = days * 24 * 60 * 60 * 1000;
             setCustomSchedule(ms);
+        }
+    };
+
+    const setCustomOffset = (count) => {
+        setModalVisible(false);
+        // Using Rating.Hard as the semantic rating for "I want to see this again soon"
+        handleRate(Rating.Hard, null, count);
+    };
+
+    const setCustomCardsCount = () => {
+        const count = parseInt(customVal, 10);
+        if (count > 0) {
+            setCustomOffset(count);
         }
     };
 
@@ -350,34 +384,34 @@ export default function StudySession({ deck, onExit }) {
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Reschedule Card</Text>
-                        <Text style={styles.modalSubtitle}>When do you want to see this again?</Text>
+                        <Text style={styles.modalTitle}>Repeat Card</Text>
+                        <Text style={styles.modalSubtitle}>Show again after how many cards?</Text>
 
                         <View style={styles.quickOptions}>
-                            <TouchableOpacity style={styles.optionBtn} onPress={() => setCustomSchedule(10 * 60 * 1000)}>
-                                <Text style={styles.optionText}>10 min</Text>
+                            <TouchableOpacity style={styles.optionBtn} onPress={() => setCustomOffset(3)}>
+                                <Text style={styles.optionText}>3 cards</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.optionBtn} onPress={() => setCustomSchedule(60 * 60 * 1000)}>
-                                <Text style={styles.optionText}>1 hr</Text>
+                            <TouchableOpacity style={styles.optionBtn} onPress={() => setCustomOffset(5)}>
+                                <Text style={styles.optionText}>5 cards</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.optionBtn} onPress={() => setCustomSchedule(24 * 60 * 60 * 1000)}>
-                                <Text style={styles.optionText}>1 day</Text>
+                            <TouchableOpacity style={styles.optionBtn} onPress={() => setCustomOffset(10)}>
+                                <Text style={styles.optionText}>10 cards</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.optionBtn} onPress={() => setCustomSchedule(3 * 24 * 60 * 60 * 1000)}>
-                                <Text style={styles.optionText}>3 days</Text>
+                            <TouchableOpacity style={styles.optionBtn} onPress={() => setCustomOffset(20)}>
+                                <Text style={styles.optionText}>20 cards</Text>
                             </TouchableOpacity>
                         </View>
 
                         <View style={styles.customInputRow}>
                             <TextInput
                                 style={styles.daysInput}
-                                placeholder="Custom days..."
+                                placeholder="Cards count..."
                                 placeholderTextColor="#94A3B8"
                                 keyboardType="numeric"
                                 value={customVal}
                                 onChangeText={setCustomVal}
                             />
-                            <TouchableOpacity style={styles.setBtn} onPress={setCustomDays}>
+                            <TouchableOpacity style={styles.setBtn} onPress={setCustomCardsCount}>
                                 <Text style={styles.setBtnText}>Set</Text>
                             </TouchableOpacity>
                         </View>
