@@ -1,9 +1,7 @@
 import JSZip from 'jszip';
-import initSqlJs from 'sql.js';
 import { getDB } from '../db';
+import { loadSqlJsLibrary } from '../db/web-sqlite.js'; // Use shared loader
 import { decompress } from 'fzstd';
-
-const WASM_URL = 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.wasm';
 
 export const importAnkiPackage = async (fileUri) => {
     console.log("Web Import: Fetching URI", fileUri);
@@ -30,8 +28,11 @@ export const importAnkiPackage = async (fileUri) => {
     }
 
     console.log("Web Import: Opening Anki DB in memory");
+
+    // Load SQL.js via dynamic script
+    const initSqlJs = await loadSqlJsLibrary(); // Reuses window.initSqlJs
     const SQL = await initSqlJs({
-        locateFile: () => WASM_URL
+        locateFile: () => '/sql-wasm.wasm'
     });
     const ankiDb = new SQL.Database(dbBuffer);
 

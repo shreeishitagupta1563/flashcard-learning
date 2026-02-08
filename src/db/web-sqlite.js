@@ -15,7 +15,7 @@ const triggerSave = () => {
     saveTimer = setTimeout(saveDB, 1000); // Debounce save
 };
 
-const loadSqlJsLibrary = () => {
+export const loadSqlJsLibrary = () => {
     return new Promise((resolve, reject) => {
         if (typeof window === 'undefined') return reject(new Error("Window not defined"));
         if (window.initSqlJs) return resolve(window.initSqlJs);
