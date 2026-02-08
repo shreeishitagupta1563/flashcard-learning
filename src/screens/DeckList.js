@@ -54,8 +54,10 @@ export default function DeckList({ onSelectDeck, onImport, onLoadDemo, onOpenSta
         if (confirmed) {
             try {
                 const db = await getDB();
-                await db.runAsync('DELETE FROM cards WHERE deck_id = ?', deck.id);
-                await db.runAsync('DELETE FROM decks WHERE id = ?', deck.id);
+                console.log("Deleting deck:", deck.id, deck.name);
+                await db.runAsync('DELETE FROM cards WHERE deck_id = ?', [deck.id]);
+                await db.runAsync('DELETE FROM decks WHERE id = ?', [deck.id]);
+                console.log("Delete complete, reloading...");
                 await loadDecks();
                 if (Platform.OS === 'web') {
                     alert(`"${deck.name}" has been deleted.`);

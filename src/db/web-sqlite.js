@@ -84,9 +84,11 @@ const createWrapper = (db) => ({
         triggerSave();
     },
     runAsync: async (sql, params = []) => {
-        console.log("WebDB Run:", sql.substring(0, 50), params);
+        // Normalize params to array
+        const normalizedParams = Array.isArray(params) ? params : [params];
+        console.log("WebDB Run:", sql.substring(0, 50), normalizedParams);
         try {
-            db.run(sql, params);
+            db.run(sql, normalizedParams);
             triggerSave();
             return { changes: db.getRowsModified() };
         } catch (err) {
@@ -95,8 +97,10 @@ const createWrapper = (db) => ({
         }
     },
     getAllAsync: async (sql, params = []) => {
+        // Normalize params to array
+        const normalizedParams = Array.isArray(params) ? params : [params];
         const stmt = db.prepare(sql);
-        stmt.bind(params);
+        stmt.bind(normalizedParams);
         const result = [];
         while (stmt.step()) {
             result.push(stmt.getAsObject());
@@ -105,8 +109,10 @@ const createWrapper = (db) => ({
         return result;
     },
     getFirstAsync: async (sql, params = []) => {
+        // Normalize params to array
+        const normalizedParams = Array.isArray(params) ? params : [params];
         const stmt = db.prepare(sql);
-        stmt.bind(params);
+        stmt.bind(normalizedParams);
         let result = null;
         if (stmt.step()) {
             result = stmt.getAsObject();
