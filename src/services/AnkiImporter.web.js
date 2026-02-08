@@ -5,6 +5,7 @@ import { decompress } from 'fzstd';
 
 export const importAnkiPackage = async (fileUri) => {
     console.log("Web Import: Fetching URI", fileUri);
+    console.log("AnkiImporter Version: 1.2 (Debug)");
     const response = await fetch(fileUri);
     const blob = await response.blob();
     const arrayBuffer = await blob.arrayBuffer();
