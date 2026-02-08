@@ -70,21 +70,34 @@ export const importAnkiPackage = async (fileUri) => {
     // Get Decks
     let decksJson;
     try {
-        console.log("Web Import: Fetching 'col' table...");
-        const colRes = ankiDb.exec("SELECT decks, models FROM col");
+        console.log("Web Import: Fetching 'col' table (all fields)...");
+        const colRes = ankiDb.exec("SELECT * FROM col");
         if (!colRes.length || !colRes[0] || !colRes[0].values.length) {
             console.error("Web Import: 'col' table empty or invalid:", JSON.stringify(colRes));
             throw new Error("Anki collection metadata is missing.");
         }
 
-        console.log("Web Import: Parsing decks...");
-        const colRow = colRes[0].values[0];
-        const rawJson = colRow[0]; // decks column
+        const validColumns = colRes[0].columns;
+        const validValues = colRes[0].values[0];
+        const decksIndex = validColumns.indexOf('decks');
 
-        console.log(`Web Import: Raw JSON Type: ${typeof rawJson}, Length: ${rawJson ? rawJson.length : 'N/A'}`);
-        if (typeof rawJson === 'string') {
-            console.log("Web Import: Raw JSON Start:", rawJson.substring(0, 100));
-            console.log("Web Import: Raw JSON End:", rawJson.substring(rawJson.length - 100));
+        console.log("Web Import: Columns found:", validColumns);
+
+        if (decksIndex === -1) {
+            throw new Error("Could not find 'decks' column in collection table.");
+        }
+
+        const rawJson = validValues[decksIndex];
+        console.log(`Web Import: Decks JSON (Length: ${rawJson ? rawJson.length : 'N/A'})`);
+
+        if (!rawJson) {
+            console.warn("Web Import: Decks JSON is empty! Checking other columns...");
+            // Log all columns to find where the data is
+            validColumns.forEach((c, i) => {
+                const v = validValues[i];
+                console.log(`Column '${c}': Type ${typeof v}, Value: ${typeof v === 'string' && v.length > 50 ? v.substring(0, 50) + '...' : v}`);
+            });
+            throw new Error("Decks data is missing in the database.");
         }
 
         decksJson = JSON.parse(rawJson);
