@@ -35,12 +35,17 @@ export default function DeckList({ onSelectDeck, onImport, onLoadDemo, onOpenSta
     };
 
     const handleDeleteDeck = async (deck) => {
-        const message = `Are you sure you want to delete "${deck.name}" and all its cards? This cannot be undone.`;
+        console.log("handleDeleteDeck called for:", deck.name, deck.id);
 
-        // Web uses window.confirm, native uses Alert.alert
-        const confirmed = Platform.OS === 'web'
-            ? window.confirm(message)
-            : await new Promise(resolve => {
+        const message = `Are you sure you want to delete "${deck.name}" and all its cards?`;
+
+        // Web uses window.confirm
+        let confirmed = false;
+        if (Platform.OS === 'web') {
+            confirmed = window.confirm(message);
+            console.log("Web confirm result:", confirmed);
+        } else {
+            confirmed = await new Promise(resolve => {
                 Alert.alert(
                     "Delete Deck",
                     message,
@@ -50,27 +55,25 @@ export default function DeckList({ onSelectDeck, onImport, onLoadDemo, onOpenSta
                     ]
                 );
             });
+        }
+
+        console.log("Confirmed:", confirmed);
 
         if (confirmed) {
             try {
+                console.log("Getting DB...");
                 const db = await getDB();
-                console.log("Deleting deck:", deck.id, deck.name);
+                console.log("DB obtained, deleting cards...");
                 await db.runAsync('DELETE FROM cards WHERE deck_id = ?', [deck.id]);
+                console.log("Cards deleted, deleting deck...");
                 await db.runAsync('DELETE FROM decks WHERE id = ?', [deck.id]);
-                console.log("Delete complete, reloading...");
+                console.log("Deck deleted, reloading...");
                 await loadDecks();
-                if (Platform.OS === 'web') {
-                    alert(`"${deck.name}" has been deleted.`);
-                } else {
-                    Alert.alert("Deleted", `"${deck.name}" has been deleted.`);
-                }
+                console.log("Decks reloaded!");
+                alert(`"${deck.name}" deleted!`);
             } catch (e) {
-                console.error("Error deleting deck:", e);
-                if (Platform.OS === 'web') {
-                    alert("Failed to delete deck.");
-                } else {
-                    Alert.alert("Error", "Failed to delete deck.");
-                }
+                console.error("Delete error:", e);
+                alert("Failed to delete: " + e.message);
             }
         }
     };
