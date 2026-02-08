@@ -31,16 +31,40 @@ export const importAnkiPackage = async (fileUri) => {
     console.log("Web Import: Opening Anki DB in memory");
 
     // Load SQL.js via dynamic script
+    // Load SQL.js via dynamic script
     const initSqlJs = await loadSqlJsLibrary(); // Reuses window.initSqlJs
     const SQL = await initSqlJs({
         locateFile: () => '/sql-wasm.wasm'
     });
-    const ankiDb = new SQL.Database(dbBuffer);
+
+    console.log("Web Import: SQL.js initialized.");
+
+    let ankiDb;
+    try {
+        // Ensure buffer is Uint8Array
+        let u8 = dbBuffer;
+        if (!(dbBuffer instanceof Uint8Array)) {
+            u8 = new Uint8Array(dbBuffer);
+        }
+        console.log(`Web Import: Creating DB from buffer (size: ${u8.byteLength})`);
+        ankiDb = new SQL.Database(u8);
+        console.log("Web Import: SQL.Database created successfully!");
+    } catch (e) {
+        console.error("Web Import: DATABASE CREATION FAILED", e);
+        throw new Error("Failed to open Anki database file. It may be corrupt or encrypted.");
+    }
 
     // Check tables
-    const tablesRes = ankiDb.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='col'");
-    if (!tablesRes.length || !tablesRes[0].values.length) {
-        throw new Error("Invalid Anki DB schema");
+    try {
+        const tablesRes = ankiDb.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='col'");
+        if (!tablesRes.length || !tablesRes[0].values.length) {
+            console.error("Web Import: Schema check failed. Tables found:", JSON.stringify(tablesRes));
+            throw new Error("Invalid Anki DB schema (col table missing)");
+        }
+        console.log("Web Import: Schema check passed.");
+    } catch (e) {
+        console.error("Web Import: Schema query failed", e);
+        throw e;
     }
 
     // Get Decks
