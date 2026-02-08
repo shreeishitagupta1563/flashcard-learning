@@ -79,7 +79,15 @@ export const importAnkiPackage = async (fileUri) => {
 
         console.log("Web Import: Parsing decks...");
         const colRow = colRes[0].values[0];
-        decksJson = JSON.parse(colRow[0]);
+        const rawJson = colRow[0]; // decks column
+
+        console.log(`Web Import: Raw JSON Type: ${typeof rawJson}, Length: ${rawJson ? rawJson.length : 'N/A'}`);
+        if (typeof rawJson === 'string') {
+            console.log("Web Import: Raw JSON Start:", rawJson.substring(0, 100));
+            console.log("Web Import: Raw JSON End:", rawJson.substring(rawJson.length - 100));
+        }
+
+        decksJson = JSON.parse(rawJson);
     } catch (e) {
         console.error("Web Import: Failed to read decks from 'col'", e);
         throw new Error("Failed to read deck list: " + e.message);
