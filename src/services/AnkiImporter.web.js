@@ -178,10 +178,14 @@ export const importAnkiPackage = async (fileUri) => {
                 const answer = parts.length > 1 ? parts[1] : '';
                 const originalId = row[idIdx];
 
+                // Set due date to yesterday to ensure cards show as "due"
+                const yesterday = new Date(Date.now() - 86400000);
+                const dueDate = yesterday.toISOString().replace('T', ' ').substring(0, 19);
+
                 await mainDb.runAsync(`
                     INSERT INTO cards (deck_id, original_id, question, answer, due, state)
                     VALUES (?, ?, ?, ?, ?, ?)
-                `, [localDeckId, originalId, question, answer, new Date().toISOString(), 0]); // New state
+                `, [localDeckId, originalId, question, answer, dueDate, 0]); // New state
             }
         }
     }
