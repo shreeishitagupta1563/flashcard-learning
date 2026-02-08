@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl, Alert } from 'react-native';
+import { View, Text, FlatList, TouchableOpacity, StyleSheet, RefreshControl, Alert, Platform } from 'react-native';
 import { getDB } from '../db';
 
 export default function DeckList({ onSelectDeck, onImport, onLoadDemo, onOpenStats, onOpenSettings }) {
@@ -35,30 +35,42 @@ export default function DeckList({ onSelectDeck, onImport, onLoadDemo, onOpenSta
     };
 
     const handleDeleteDeck = async (deck) => {
-        Alert.alert(
-            "Delete Deck",
-            `Are you sure you want to delete "${deck.name}" and all its cards? This cannot be undone.`,
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            const db = await getDB();
-                            // Delete cards first, then deck
-                            await db.runAsync('DELETE FROM cards WHERE deck_id = ?', deck.id);
-                            await db.runAsync('DELETE FROM decks WHERE id = ?', deck.id);
-                            await loadDecks();
-                            Alert.alert("Deleted", `"${deck.name}" has been deleted.`);
-                        } catch (e) {
-                            console.error("Error deleting deck:", e);
-                            Alert.alert("Error", "Failed to delete deck.");
-                        }
-                    }
+        const message = `Are you sure you want to delete "${deck.name}" and all its cards? This cannot be undone.`;
+
+        // Web uses window.confirm, native uses Alert.alert
+        const confirmed = Platform.OS === 'web'
+            ? window.confirm(message)
+            : await new Promise(resolve => {
+                Alert.alert(
+                    "Delete Deck",
+                    message,
+                    [
+                        { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
+                        { text: "Delete", style: "destructive", onPress: () => resolve(true) }
+                    ]
+                );
+            });
+
+        if (confirmed) {
+            try {
+                const db = await getDB();
+                await db.runAsync('DELETE FROM cards WHERE deck_id = ?', deck.id);
+                await db.runAsync('DELETE FROM decks WHERE id = ?', deck.id);
+                await loadDecks();
+                if (Platform.OS === 'web') {
+                    alert(`"${deck.name}" has been deleted.`);
+                } else {
+                    Alert.alert("Deleted", `"${deck.name}" has been deleted.`);
                 }
-            ]
-        );
+            } catch (e) {
+                console.error("Error deleting deck:", e);
+                if (Platform.OS === 'web') {
+                    alert("Failed to delete deck.");
+                } else {
+                    Alert.alert("Error", "Failed to delete deck.");
+                }
+            }
+        }
     };
 
     const handleLongPress = (deck) => {
@@ -136,7 +148,9 @@ export default function DeckList({ onSelectDeck, onImport, onLoadDemo, onOpenSta
                 contentContainerStyle={styles.list}
             />
 
-            <Text style={styles.hint}>💡 Long press (or right-click) a deck for options</Text>
+            {Platform.OS !== 'web' && (
+                <Text style={styles.hint}>💡 Long press a deck for options</Text>
+            )}
         </View>
     );
 }
