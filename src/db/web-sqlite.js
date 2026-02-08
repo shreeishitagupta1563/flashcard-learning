@@ -21,13 +21,19 @@ export const openDatabaseAsync = async (name) => {
     if (db) return createWrapper(db);
 
     try {
-        console.log("WebSQLite: Loading WASM from /sql-wasm.wasm");
+        console.log("WebSQLite: checking /sql-wasm.wasm...");
+        const check = await fetch('/sql-wasm.wasm');
+        if (!check.ok) {
+            console.error(`WebSQLite: /sql-wasm.wasm failed with status ${check.status}`);
+            throw new Error(`WASM file missing at root (/sql-wasm.wasm). Status: ${check.status}`);
+        }
+        console.log("WebSQLite: /sql-wasm.wasm found! Content-Type:", check.headers.get('content-type'));
 
         const SQL = await Promise.race([
             initSqlJs({
                 locateFile: () => '/sql-wasm.wasm'
             }),
-            new Promise((_, reject) => setTimeout(() => reject(new Error("SQL.js WASM load timed out after 10s")), 10000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error("SQL.js WASM load timed out (even with file present!)")), 10000))
         ]);
 
         const savedData = await localforage.getItem('pels_db');
