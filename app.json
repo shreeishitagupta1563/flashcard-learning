@@ -24,7 +24,22 @@
       "package": "com.shreeishita.pels"
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/pels-icon.png",
+      "name": "PELS Flashcards",
+      "shortName": "PELS",
+      "lang": "en",
+      "themeColor": "#38BDF8",
+      "backgroundColor": "#0F172A",
+      "display": "standalone",
+      "scope": "/",
+      "startUrl": "/",
+      "meta": {
+        "appleMobileWebAppCapable": "yes",
+        "appleMobileWebAppStatusBarStyle": "black-translucent",
+        "mobileWebAppCapable": "yes"
+      }
     },
     "plugins": [
       "expo-sqlite",
