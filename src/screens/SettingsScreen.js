@@ -11,7 +11,8 @@ const DEFAULT_SETTINGS = {
     easyBonus: 1.3,
     hardInterval: 1.2,
     newCardsPerDay: 20,
-    reviewsPerDay: 200
+    reviewsPerDay: 200,
+    cardsPerSession: 50
 };
 
 export default function SettingsScreen({ onSave }) {
@@ -157,6 +158,24 @@ export default function SettingsScreen({ onSave }) {
                         }}
                         keyboardType="number-pad"
                         placeholder="200"
+                        placeholderTextColor="#64748B"
+                    />
+                </View>
+
+                <View style={styles.inputRow}>
+                    <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>Cards per Session</Text>
+                        <Text style={styles.inputHint}>How many cards to load when you open a deck</Text>
+                    </View>
+                    <TextInput
+                        style={styles.input}
+                        value={(settings.cardsPerSession || 50).toString()}
+                        onChangeText={(text) => {
+                            const val = parseInt(text) || 50;
+                            updateSetting('cardsPerSession', Math.max(1, Math.min(500, val)));
+                        }}
+                        keyboardType="number-pad"
+                        placeholder="50"
                         placeholderTextColor="#64748B"
                     />
                 </View>

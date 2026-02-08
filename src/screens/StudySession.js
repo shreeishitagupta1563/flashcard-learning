@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated, Easing, Modal, TextInput } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getDB } from '../db';
 import { createCardFromDb, nextCardState, Rating } from '../services/scheduler';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -37,19 +38,27 @@ export default function StudySession({ deck, onExit }) {
     const loadQueue = async () => {
         const db = await getDB();
         try {
-            console.log("StudySession: Loading cards for deck_id:", deck.id, "deck object:", JSON.stringify(deck));
+            // Load cards per session setting
+            let cardsLimit = 50;
+            try {
+                const settingsStr = await AsyncStorage.getItem('@dutchflow_srs_settings');
+                if (settingsStr) {
+                    const settings = JSON.parse(settingsStr);
+                    cardsLimit = settings.cardsPerSession || 50;
+                }
+            } catch (e) {
+                console.log("Using default cardsPerSession");
+            }
 
-            // Debug: Get ALL cards in database (ignore deck_id)
-            const allCards = await db.getAllAsync('SELECT id, deck_id, question FROM cards LIMIT 10');
-            console.log("StudySession: ALL cards in DB:", JSON.stringify(allCards));
+            console.log("StudySession: Loading", cardsLimit, "cards for deck_id:", deck.id);
 
             // Get cards for this specific deck
             const res = await db.getAllAsync(
-                'SELECT * FROM cards WHERE deck_id = ? LIMIT 50',
+                `SELECT * FROM cards WHERE deck_id = ? LIMIT ${cardsLimit}`,
                 deck.id
             );
 
-            console.log("StudySession: Cards for deck_id=" + deck.id + ":", res.length);
+            console.log("StudySession: Cards found:", res.length);
 
             const mapped = res.map(c => ({
                 ...c,
