@@ -25,8 +25,8 @@
     },
     "web": {
       "bundler": "metro",
-      "output": "static",
-      "favicon": "./assets/pels-icon.png",
+      "output": "single",
+      "favicon": "./assets/favicon.png",
       "name": "PELS Flashcards",
       "shortName": "PELS",
       "lang": "en",
