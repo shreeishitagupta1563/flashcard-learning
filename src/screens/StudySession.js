@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated, Easing } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Dimensions, Animated, Easing, Modal, TextInput } from 'react-native';
 import { getDB } from '../db';
 import { createCardFromDb, nextCardState, Rating } from '../services/scheduler';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -67,7 +67,11 @@ export default function StudySession({ deck, onExit }) {
         currentIdxRef.current = currentIdx;
     }, [currentIdx]);
 
-    const handleRate = async (rating) => {
+    const [modalVisible, setModalVisible] = useState(false);
+    const [customVal, setCustomVal] = useState('');
+
+    // Updated handleRate to support custom due date override
+    const handleRate = async (rating, overrideDueDate = null) => {
         const currentQ = queueRef.current;
         const currentI = currentIdxRef.current;
 
@@ -75,6 +79,14 @@ export default function StudySession({ deck, onExit }) {
 
         const currentCard = currentQ[currentI];
         const { card: newCard } = nextCardState(currentCard.fsrsCard, rating);
+
+        if (overrideDueDate) {
+            newCard.due = overrideDueDate;
+            // Calculate days difference roughly
+            const diffTime = Math.abs(overrideDueDate - new Date());
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            newCard.scheduled_days = diffDays;
+        }
 
         const db = await getDB();
         await db.runAsync(`
@@ -89,17 +101,24 @@ export default function StudySession({ deck, onExit }) {
         );
 
         // If Hard (or Again), add back to queue to repeat in this session
-        if (rating === Rating.Hard || rating === Rating.Again) {
-            // Create a copy of the card to act as the "repeat" instance
-            // We might want to give it a temporary ID or just reuse, but simple reuse is fine for display
-            // Ideally we shouldn't update DB for the repeat unless needed, but here we just want to see it again.
+        // UNLESS we set a custom long-term due date (e.g. > 1 day)
+        // If override is > 1 day, we probably don't need to see it again *now*.
+        let shouldRequeue = rating === Rating.Hard || rating === Rating.Again;
+
+        if (overrideDueDate) {
+            const now = new Date();
+            const oneHour = 60 * 60 * 1000;
+            if (overrideDueDate.getTime() - now.getTime() > oneHour) {
+                shouldRequeue = false; // Don't show again in session if rescheduled far out
+            }
+        }
+
+        if (shouldRequeue) {
             const repeatCard = { ...currentCard, _isRepeat: true };
             const updatedQueue = [...currentQ, repeatCard];
             setQueue(updatedQueue);
-            // queueRef will update via effect, but for immediate logic we know length grew
             setCurrentIdx(currentI + 1);
         } else {
-            // Easy/Good
             if (currentI < currentQ.length - 1) {
                 setCurrentIdx(currentI + 1);
             } else {
@@ -118,6 +137,21 @@ export default function StudySession({ deck, onExit }) {
             }).start();
             setIsFlipped(true);
             isFlippedRef.current = true;
+        }
+    };
+
+    const setCustomSchedule = (durationMs) => {
+        const now = new Date();
+        const due = new Date(now.getTime() + durationMs);
+        setModalVisible(false);
+        handleRate(Rating.Hard, due);
+    };
+
+    const setCustomDays = () => {
+        const days = parseFloat(customVal);
+        if (days > 0) {
+            const ms = days * 24 * 60 * 60 * 1000;
+            setCustomSchedule(ms);
         }
     };
 
@@ -296,7 +330,64 @@ export default function StudySession({ deck, onExit }) {
                 </Animated.View>
             </View>
 
-            {/* Rating buttons (only when flipped) */}
+            {/* Custom Schedule Button (only when flipped) */}
+            {isFlipped && (
+                <View style={styles.customScheduleContainer}>
+                    <TouchableOpacity
+                        style={styles.customScheduleBtn}
+                        onPress={() => setModalVisible(true)}
+                    >
+                        <Text style={styles.customScheduleText}>⏱️ Set Custom Interval</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
+
+            <Modal
+                animationType="slide"
+                transparent={true}
+                visible={modalVisible}
+                onRequestClose={() => setModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <Text style={styles.modalTitle}>Reschedule Card</Text>
+                        <Text style={styles.modalSubtitle}>When do you want to see this again?</Text>
+
+                        <View style={styles.quickOptions}>
+                            <TouchableOpacity style={styles.optionBtn} onPress={() => setCustomSchedule(10 * 60 * 1000)}>
+                                <Text style={styles.optionText}>10 min</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.optionBtn} onPress={() => setCustomSchedule(60 * 60 * 1000)}>
+                                <Text style={styles.optionText}>1 hr</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.optionBtn} onPress={() => setCustomSchedule(24 * 60 * 60 * 1000)}>
+                                <Text style={styles.optionText}>1 day</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.optionBtn} onPress={() => setCustomSchedule(3 * 24 * 60 * 60 * 1000)}>
+                                <Text style={styles.optionText}>3 days</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.customInputRow}>
+                            <TextInput
+                                style={styles.daysInput}
+                                placeholder="Custom days..."
+                                placeholderTextColor="#94A3B8"
+                                keyboardType="numeric"
+                                value={customVal}
+                                onChangeText={setCustomVal}
+                            />
+                            <TouchableOpacity style={styles.setBtn} onPress={setCustomDays}>
+                                <Text style={styles.setBtnText}>Set</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <TouchableOpacity style={styles.cancelBtn} onPress={() => setModalVisible(false)}>
+                            <Text style={styles.cancelText}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
 
         </View>
     );
@@ -488,5 +579,115 @@ const styles = StyleSheet.create({
         color: '#0F172A',
         textAlign: 'center'
     },
-
+    customScheduleContainer: {
+        alignItems: 'center',
+        paddingBottom: 20
+    },
+    customScheduleBtn: {
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        paddingVertical: 10,
+        paddingHorizontal: 20,
+        borderRadius: 20,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8
+    },
+    customScheduleText: {
+        color: '#FFF',
+        fontFamily: 'Inter_700Bold',
+        fontSize: 14
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20
+    },
+    modalContent: {
+        backgroundColor: '#FFF',
+        borderRadius: 24,
+        padding: 24,
+        width: '100%',
+        maxWidth: 340,
+        alignItems: 'center',
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontFamily: 'Inter_700Bold',
+        color: '#0F172A',
+        marginBottom: 8
+    },
+    modalSubtitle: {
+        fontSize: 14,
+        fontFamily: 'Inter_400Regular',
+        color: '#64748B',
+        marginBottom: 24,
+        textAlign: 'center'
+    },
+    quickOptions: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        gap: 12,
+        justifyContent: 'center',
+        marginBottom: 24
+    },
+    optionBtn: {
+        backgroundColor: '#F1F5F9',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderRadius: 12,
+        minWidth: 70,
+        alignItems: 'center'
+    },
+    optionText: {
+        color: '#334155',
+        fontFamily: 'Inter_600SemiBold',
+        fontSize: 13
+    },
+    customInputRow: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 24,
+        width: '100%',
+        alignItems: 'center'
+    },
+    daysInput: {
+        flex: 1,
+        backgroundColor: '#F1F5F9',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        fontSize: 16,
+        fontFamily: 'Inter_400Regular',
+        color: '#0F172A'
+    },
+    setBtn: {
+        backgroundColor: '#3B82F6',
+        borderRadius: 12,
+        paddingHorizontal: 20,
+        paddingVertical: 12,
+        justifyContent: 'center',
+        alignItems: 'center'
+    },
+    setBtnText: {
+        color: '#FFF',
+        fontFamily: 'Inter_700Bold',
+        fontSize: 14
+    },
+    cancelBtn: {
+        paddingVertical: 12,
+        width: '100%',
+        alignItems: 'center'
+    },
+    cancelText: {
+        color: '#64748B',
+        fontFamily: 'Inter_600SemiBold',
+        fontSize: 14
+    }
 });
