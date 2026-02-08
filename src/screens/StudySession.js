@@ -37,18 +37,19 @@ export default function StudySession({ deck, onExit }) {
     const loadQueue = async () => {
         const db = await getDB();
         try {
-            console.log("StudySession: Loading cards for deck_id:", deck.id);
+            console.log("StudySession: Loading cards for deck_id:", deck.id, "deck object:", JSON.stringify(deck));
 
-            // Get ALL cards for this deck (no filtering) to debug
+            // Debug: Get ALL cards in database (ignore deck_id)
+            const allCards = await db.getAllAsync('SELECT id, deck_id, question FROM cards LIMIT 10');
+            console.log("StudySession: ALL cards in DB:", JSON.stringify(allCards));
+
+            // Get cards for this specific deck
             const res = await db.getAllAsync(
                 'SELECT * FROM cards WHERE deck_id = ? LIMIT 50',
                 deck.id
             );
 
-            console.log("StudySession: Cards found:", res.length);
-            if (res.length > 0) {
-                console.log("StudySession: First card:", JSON.stringify(res[0]));
-            }
+            console.log("StudySession: Cards for deck_id=" + deck.id + ":", res.length);
 
             const mapped = res.map(c => ({
                 ...c,
