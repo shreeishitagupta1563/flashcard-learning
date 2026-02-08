@@ -1,10 +1,11 @@
 import initSqlJs from 'sql.js';
 import localforage from 'localforage';
+import { Asset } from 'expo-asset';
 
 let db = null;
 let saveTimer = null;
 
-const WASM_URL = 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.wasm';
+const WASM_MODULE = require('../../assets/sql-wasm.wasm');
 
 const saveDB = async () => {
     if (db) {
@@ -23,10 +24,20 @@ export const openDatabaseAsync = async (name) => {
     if (db) return createWrapper(db);
 
     try {
-        const SQL = await initSqlJs({
-            // locateFile normally looks relative to script, but we use CDN for ease
-            locateFile: file => WASM_URL
-        });
+        const wasmAsset = Asset.fromModule(WASM_MODULE);
+        if (!wasmAsset.localUri) {
+            await wasmAsset.downloadAsync(); // Ensure it's available (on web usually instant if bundled, but safer)
+        }
+        const wasmUrl = wasmAsset.localUri || wasmAsset.uri;
+
+        console.log("WebSQLite: Loading WASM from", wasmUrl);
+
+        const SQL = await Promise.race([
+            initSqlJs({
+                locateFile: () => wasmUrl
+            }),
+            new Promise((_, reject) => setTimeout(() => reject(new Error("SQL.js WASM load timed out after 10s")), 10000))
+        ]);
 
         const savedData = await localforage.getItem('pels_db');
         if (savedData) {
