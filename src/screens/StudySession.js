@@ -39,21 +39,16 @@ export default function StudySession({ deck, onExit }) {
         try {
             console.log("StudySession: Loading cards for deck_id:", deck.id);
 
-            // First, count all cards in this deck
-            const countRes = await db.getFirstAsync(
-                'SELECT COUNT(*) as total FROM cards WHERE deck_id = ?',
+            // Get ALL cards for this deck (no filtering) to debug
+            const res = await db.getAllAsync(
+                'SELECT * FROM cards WHERE deck_id = ? LIMIT 50',
                 deck.id
             );
-            console.log("StudySession: Total cards in deck:", countRes?.total);
 
-            // Get due cards (state=0 means new, or past due date)
-            const res = await db.getAllAsync(`
-                SELECT * FROM cards 
-                WHERE deck_id = ? AND (state = 0 OR due <= datetime('now'))
-                ORDER BY state ASC, due ASC LIMIT 20
-            `, deck.id);
-
-            console.log("StudySession: Due cards found:", res.length);
+            console.log("StudySession: Cards found:", res.length);
+            if (res.length > 0) {
+                console.log("StudySession: First card:", JSON.stringify(res[0]));
+            }
 
             const mapped = res.map(c => ({
                 ...c,
