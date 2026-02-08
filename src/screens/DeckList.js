@@ -113,6 +113,11 @@ export default function DeckList({ onSelectDeck, onImport, onLoadDemo, onOpenSta
                         onPress={() => onSelectDeck(item)}
                         onLongPress={() => handleLongPress(item)}
                         delayLongPress={500}
+                        // Web: Right-click triggers context menu (same as long press)
+                        onContextMenu={(e) => {
+                            e.preventDefault();
+                            handleLongPress(item);
+                        }}
                     >
                         <View style={styles.cardContent}>
                             <Text style={styles.deckName}>{item.name}</Text>
@@ -131,7 +136,7 @@ export default function DeckList({ onSelectDeck, onImport, onLoadDemo, onOpenSta
                 contentContainerStyle={styles.list}
             />
 
-            <Text style={styles.hint}>💡 Long press a deck for more options</Text>
+            <Text style={styles.hint}>💡 Long press (or right-click) a deck for options</Text>
         </View>
     );
 }
