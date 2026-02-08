@@ -67,54 +67,56 @@ export const importAnkiPackage = async (fileUri) => {
         throw e;
     }
 
-    // Get Decks
-    let decksJson;
-    try {
-        console.log("Web Import: Fetching 'col' table (all fields)...");
-        const colRes = ankiDb.exec("SELECT * FROM col");
-        if (!colRes.length || !colRes[0] || !colRes[0].values.length) {
-            console.error("Web Import: 'col' table empty or invalid:", JSON.stringify(colRes));
-            throw new Error("Anki collection metadata is missing.");
+    // Get Decks - Handle both old (col.decks JSON) and new (decks table) schema
+    let decksData = {}; // Will be { deckId: { id, name } }
+
+    // First check schema version
+    const colRes = ankiDb.exec("SELECT ver FROM col");
+    const schemaVersion = colRes[0]?.values[0]?.[0] || 11;
+    console.log(`Web Import: Anki Schema Version: ${schemaVersion}`);
+
+    if (schemaVersion >= 11) {
+        // New schema (v11+): Check if 'decks' TABLE exists
+        const tablesRes = ankiDb.exec("SELECT name FROM sqlite_master WHERE type='table' AND name='decks'");
+        const hasDecksTable = tablesRes.length > 0 && tablesRes[0].values.length > 0;
+
+        if (hasDecksTable) {
+            console.log("Web Import: Using NEW schema (decks table)");
+            const decksTableRes = ankiDb.exec("SELECT id, name FROM decks");
+            if (decksTableRes.length > 0) {
+                for (const row of decksTableRes[0].values) {
+                    const id = String(row[0]);
+                    const name = row[1];
+                    decksData[id] = { id, name };
+                }
+            }
+        } else {
+            // Fall back to col.decks JSON
+            console.log("Web Import: Using OLD schema (col.decks JSON)");
+            const colFullRes = ankiDb.exec("SELECT decks FROM col");
+            const rawJson = colFullRes[0]?.values[0]?.[0];
+            if (rawJson) {
+                decksData = JSON.parse(rawJson);
+            }
         }
-
-        const validColumns = colRes[0].columns;
-        const validValues = colRes[0].values[0];
-        const decksIndex = validColumns.indexOf('decks');
-
-        console.log("Web Import: Columns found:", validColumns);
-
-        if (decksIndex === -1) {
-            throw new Error("Could not find 'decks' column in collection table.");
+    } else {
+        // Very old schema: use col.decks JSON
+        console.log("Web Import: Using LEGACY schema (col.decks JSON)");
+        const colFullRes = ankiDb.exec("SELECT decks FROM col");
+        const rawJson = colFullRes[0]?.values[0]?.[0];
+        if (rawJson) {
+            decksData = JSON.parse(rawJson);
         }
-
-        const rawJson = validValues[decksIndex];
-        console.log(`Web Import: Decks JSON (Length: ${rawJson ? rawJson.length : 'N/A'})`);
-
-        if (!rawJson) {
-            console.warn("Web Import: Decks JSON is empty! Checking other columns...");
-            // Log all columns to find where the data is
-            validColumns.forEach((c, i) => {
-                const v = validValues[i];
-                console.log(`Column '${c}': Type ${typeof v}, Value: ${typeof v === 'string' && v.length > 50 ? v.substring(0, 50) + '...' : v}`);
-            });
-            throw new Error("Decks data is missing in the database.");
-        }
-
-        decksJson = JSON.parse(rawJson);
-    } catch (e) {
-        console.error("Web Import: Failed to read decks from 'col'", e);
-        throw new Error("Failed to read deck list: " + e.message);
     }
 
-    console.log("Web Import: Decks JSON Keys:", Object.keys(decksJson));
-    console.log("Web Import: Full Decks Structure:", JSON.stringify(decksJson).substring(0, 200) + "...");
+    console.log("Web Import: Found decks:", Object.keys(decksData));
 
     const mainDb = await getDB();
 
-    for (const [deckId, deck] of Object.entries(decksJson)) {
+    for (const [deckId, deck] of Object.entries(decksData)) {
         console.log(`Web Import: Inspecting Deck ID ${deckId}, Name: "${deck.name}"`);
 
-        if (deck.name === 'Default' && Object.keys(decksJson).length > 1) {
+        if (deck.name === 'Default' && Object.keys(decksData).length > 1) {
             console.log("Web Import: Skipping Default deck");
             continue;
         }
