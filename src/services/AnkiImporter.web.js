@@ -46,12 +46,19 @@ export const importAnkiPackage = async (fileUri) => {
     const colRes = ankiDb.exec("SELECT decks, models FROM col");
     const colRow = colRes[0].values[0];
     const decksJson = JSON.parse(colRow[0]);
-    // const modelsJson = JSON.parse(colRow[1]); // Not used yet
+
+    console.log("Web Import: Decks JSON Keys:", Object.keys(decksJson));
+    console.log("Web Import: Full Decks Structure:", JSON.stringify(decksJson).substring(0, 200) + "...");
 
     const mainDb = await getDB();
 
     for (const [deckId, deck] of Object.entries(decksJson)) {
-        if (deck.name === 'Default' && Object.keys(decksJson).length > 1) continue;
+        console.log(`Web Import: Inspecting Deck ID ${deckId}, Name: "${deck.name}"`);
+
+        if (deck.name === 'Default' && Object.keys(decksJson).length > 1) {
+            console.log("Web Import: Skipping Default deck");
+            continue;
+        }
 
         console.log("Processing Deck:", deck.name);
 
