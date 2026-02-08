@@ -1,11 +1,8 @@
 import initSqlJs from 'sql.js';
 import localforage from 'localforage';
-import { Asset } from 'expo-asset';
 
 let db = null;
 let saveTimer = null;
-
-const WASM_MODULE = require('../../assets/sql-wasm.wasm');
 
 const saveDB = async () => {
     if (db) {
@@ -24,17 +21,11 @@ export const openDatabaseAsync = async (name) => {
     if (db) return createWrapper(db);
 
     try {
-        const wasmAsset = Asset.fromModule(WASM_MODULE);
-        if (!wasmAsset.localUri) {
-            await wasmAsset.downloadAsync(); // Ensure it's available (on web usually instant if bundled, but safer)
-        }
-        const wasmUrl = wasmAsset.localUri || wasmAsset.uri;
-
-        console.log("WebSQLite: Loading WASM from", wasmUrl);
+        console.log("WebSQLite: Loading WASM from /sql-wasm.wasm");
 
         const SQL = await Promise.race([
             initSqlJs({
-                locateFile: () => wasmUrl
+                locateFile: () => '/sql-wasm.wasm'
             }),
             new Promise((_, reject) => setTimeout(() => reject(new Error("SQL.js WASM load timed out after 10s")), 10000))
         ]);
