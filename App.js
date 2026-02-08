@@ -23,9 +23,15 @@ export default function App() {
   const [currentScreen, setCurrentScreen] = useState('home'); // 'home', 'stats', 'settings'
   const [dbReady, setDbReady] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [initError, setInitError] = useState(null);
 
   useEffect(() => {
-    initDB().then(() => setDbReady(true)).catch(e => console.error("DB Init Error", e));
+    initDB()
+      .then(() => setDbReady(true))
+      .catch(e => {
+        console.error("DB Init Error", e);
+        setInitError("DB Failed: " + e.message);
+      });
   }, []);
 
   const handleImport = async () => {
@@ -75,7 +81,26 @@ export default function App() {
     }
   };
 
-  if (!fontsLoaded || !dbReady) return <View style={styles.container}><StatusBar style="light" /></View>;
+  if (initError) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0F172A', justifyContent: 'center', alignItems: 'center', padding: 20 }}>
+        <Text style={{ color: '#EF4444', fontSize: 18, fontFamily: 'Inter_700Bold', textAlign: 'center' }}>Initialization Error</Text>
+        <Text style={{ color: '#fff', marginTop: 10 }}>{initError}</Text>
+        <TouchableOpacity onPress={() => window.location.reload()} style={{ marginTop: 20, padding: 10, backgroundColor: '#334155', borderRadius: 8 }}>
+          <Text style={{ color: '#fff' }}>Reload</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  if (!fontsLoaded || !dbReady) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#0F172A', justifyContent: 'center', alignItems: 'center' }}>
+        <StatusBar style="light" />
+        <Text style={{ color: '#fff' }}>Loading...</Text>
+      </View>
+    );
+  }
 
   // Render current screen
   const renderScreen = () => {
