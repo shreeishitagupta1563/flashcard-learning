@@ -26,11 +26,19 @@ export default function StatsScreen() {
     const loadStats = async () => {
         const db = await getDB();
         try {
-            // Overall stats
-            const totalResult = await db.getAllAsync('SELECT COUNT(*) as count FROM cards');
-            const newResult = await db.getAllAsync('SELECT COUNT(*) as count FROM cards WHERE state = 0');
-            const learningResult = await db.getAllAsync('SELECT COUNT(*) as count FROM cards WHERE state = 1');
-            const reviewResult = await db.getAllAsync('SELECT COUNT(*) as count FROM cards WHERE state = 2 OR state = 3');
+            // Overall stats - Only count cards linked to actual decks
+            const totalResult = await db.getAllAsync(
+                'SELECT COUNT(c.id) as count FROM cards c JOIN decks d ON c.deck_id = d.id'
+            );
+            const newResult = await db.getAllAsync(
+                'SELECT COUNT(c.id) as count FROM cards c JOIN decks d ON c.deck_id = d.id WHERE c.state = 0'
+            );
+            const learningResult = await db.getAllAsync(
+                'SELECT COUNT(c.id) as count FROM cards c JOIN decks d ON c.deck_id = d.id WHERE c.state = 1'
+            );
+            const reviewResult = await db.getAllAsync(
+                'SELECT COUNT(c.id) as count FROM cards c JOIN decks d ON c.deck_id = d.id WHERE c.state = 2 OR c.state = 3'
+            );
             const decksResult = await db.getAllAsync('SELECT COUNT(*) as count FROM decks');
 
             // Cards studied today

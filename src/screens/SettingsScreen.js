@@ -70,6 +70,29 @@ export default function SettingsScreen({ onSave }) {
         setHasChanges(true);
     };
 
+    const cleanupDatabase = async () => {
+        const db = await getDB();
+        try {
+            // Count total cards before cleanup
+            const beforeCount = await db.getAllAsync('SELECT COUNT(*) as count FROM cards');
+
+            // Delete cards not linked to valid decks
+            await db.runAsync('DELETE FROM cards WHERE deck_id NOT IN (SELECT id FROM decks)');
+
+            // Force save
+            if (db.saveNow) await db.saveNow();
+
+            // Count after
+            const afterCount = await db.getAllAsync('SELECT COUNT(*) as count FROM cards');
+            const removed = beforeCount[0].count - afterCount[0].count;
+
+            Alert.alert("Database Cleaned", `Removed ${removed} orphaned cards.`);
+        } catch (e) {
+            console.error("Cleanup error:", e);
+            Alert.alert("Error", "Failed to clean database.");
+        }
+    };
+
     return (
         <ScrollView style={styles.container} contentContainerStyle={styles.content}>
             <View style={styles.headerBrand}>
@@ -77,6 +100,13 @@ export default function SettingsScreen({ onSave }) {
                 <Text style={styles.brandSubtitle}>Pieter Experimental Language School</Text>
             </View>
             <Text style={styles.title}>⚙️ Settings</Text>
+
+            <TouchableOpacity
+                style={[styles.resetButton, { backgroundColor: '#3B82F6', marginBottom: 20 }]}
+                onPress={cleanupDatabase}
+            >
+                <Text style={styles.resetButtonText}>🧹 Clean Database</Text>
+            </TouchableOpacity>
 
             {/* FSRS Parameters */}
             <View style={styles.section}>
