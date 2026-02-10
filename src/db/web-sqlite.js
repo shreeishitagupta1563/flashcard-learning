@@ -89,8 +89,11 @@ const createWrapper = (db) => ({
         console.log("WebDB Run:", sql.substring(0, 50), normalizedParams);
         try {
             db.run(sql, normalizedParams);
-            triggerSave();
-            return { changes: db.getRowsModified() };
+            const changes = db.getRowsModified();
+            console.log("WebDB Run: rows modified:", changes);
+            // Save immediately for writes
+            await saveDB();
+            return { changes };
         } catch (err) {
             console.error("SQL Error:", err);
             throw err;
