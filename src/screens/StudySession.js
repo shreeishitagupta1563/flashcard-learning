@@ -52,13 +52,16 @@ export default function StudySession({ deck, onExit }) {
 
             console.log("StudySession: Loading", cardsLimit, "cards for deck_id:", deck.id);
 
-            // Get cards for this specific deck
+            // Only fetch cards that are NEW (state=0) or DUE for review (due <= now)
             const res = await db.getAllAsync(
-                `SELECT * FROM cards WHERE deck_id = ? LIMIT ${cardsLimit}`,
+                `SELECT * FROM cards 
+                 WHERE deck_id = ? AND (state = 0 OR due <= datetime('now'))
+                 ORDER BY state ASC, due ASC 
+                 LIMIT ${cardsLimit}`,
                 deck.id
             );
 
-            console.log("StudySession: Cards found:", res.length);
+            console.log("StudySession: Due cards found:", res.length);
 
             const mapped = res.map(c => ({
                 ...c,
