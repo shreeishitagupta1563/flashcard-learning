@@ -130,11 +130,11 @@ export const importAnkiPackage = async (fileUri) => {
             localDeckId = existingDeck.id;
         } else {
             await mainDb.runAsync("INSERT INTO decks (original_id, name) VALUES (?, ?)", [deckId, deck.name]);
-            // Get last ID - sql.js doesn't return ID directly in runAsync wrapper, need specific query
-            // Actually our runAsync wrapper returns { changes }, not lastId.
-            // We can query max ID.
-            const res = await mainDb.getFirstAsync("SELECT last_insert_rowid() as id");
-            localDeckId = res.id;
+
+            // fetch the ID reliably by querying the unique original_id
+            const newDeck = await mainDb.getFirstAsync("SELECT id FROM decks WHERE original_id = ?", [deckId]);
+            localDeckId = newDeck.id;
+            console.log(`Web Import: Created deck '${deck.name}' with Local ID: ${localDeckId}`);
         }
 
         // Get Cards (notes)
@@ -191,6 +191,12 @@ export const importAnkiPackage = async (fileUri) => {
     }
 
     ankiDb.close();
+
+    // Force save to persist all imported data
+    if (mainDb.saveNow) {
+        await mainDb.saveNow();
+    }
+
     console.log("Web Import: Complete");
 
     return true;

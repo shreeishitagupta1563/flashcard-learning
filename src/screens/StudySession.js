@@ -125,6 +125,11 @@ export default function StudySession({ deck, onExit }) {
             currentCard.id
         ]);
 
+        // Force save to persist progress immediately
+        if (db.saveNow) {
+            await db.saveNow();
+        }
+
         // Determine if we should requeue (repeat in session)
         let shouldRequeue = false;
 

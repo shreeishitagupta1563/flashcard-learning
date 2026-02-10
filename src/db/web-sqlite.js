@@ -90,14 +90,16 @@ const createWrapper = (db) => ({
         try {
             db.run(sql, normalizedParams);
             const changes = db.getRowsModified();
-            console.log("WebDB Run: rows modified:", changes);
-            // Save immediately for writes
-            await saveDB();
+            triggerSave();
             return { changes };
         } catch (err) {
             console.error("SQL Error:", err);
             throw err;
         }
+    },
+    // Force immediate save (call after batch operations)
+    saveNow: async () => {
+        await saveDB();
     },
     getAllAsync: async (sql, params = []) => {
         // Normalize params to array

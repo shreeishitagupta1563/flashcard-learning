@@ -67,6 +67,10 @@ export default function DeckList({ onSelectDeck, onImport, onLoadDemo, onOpenSta
                 await db.runAsync('DELETE FROM cards WHERE deck_id = ?', [deck.id]);
                 console.log("Cards deleted, deleting deck...");
                 await db.runAsync('DELETE FROM decks WHERE id = ?', [deck.id]);
+
+                // Force immediate save
+                if (db.saveNow) await db.saveNow();
+
                 console.log("Deck deleted, reloading...");
                 await loadDecks();
                 console.log("Decks reloaded!");
