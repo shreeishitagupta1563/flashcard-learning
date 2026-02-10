@@ -106,16 +106,21 @@ export default function StudySession({ deck, onExit }) {
         }
 
         const db = await getDB();
+        // Convert dates to SQLite-compatible format (YYYY-MM-DD HH:MM:SS)
+        const dueStr = newCard.due.toISOString().replace('T', ' ').substring(0, 19);
+        const lastReviewStr = (newCard.last_review ? newCard.last_review : new Date())
+            .toISOString().replace('T', ' ').substring(0, 19);
+
         await db.runAsync(`
             UPDATE cards SET 
                 state = ?, due = ?, stability = ?, difficulty = ?, 
                 elapsed_days = ?, scheduled_days = ?, reps = ?, lapses = ?, last_review = ?
             WHERE id = ?
-        `,
-            newCard.state, newCard.due.toISOString(), newCard.stability, newCard.difficulty,
-            newCard.elapsed_days, newCard.scheduled_days, newCard.reps, newCard.lapses, newCard.last_review ? newCard.last_review.toISOString() : new Date().toISOString(),
+        `, [
+            newCard.state, dueStr, newCard.stability, newCard.difficulty,
+            newCard.elapsed_days, newCard.scheduled_days, newCard.reps, newCard.lapses, lastReviewStr,
             currentCard.id
-        );
+        ]);
 
         // Determine if we should requeue (repeat in session)
         let shouldRequeue = false;
